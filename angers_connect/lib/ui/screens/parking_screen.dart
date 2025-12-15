@@ -21,6 +21,7 @@ class ParkingScreen extends StatefulWidget {
 class _ParkingScreenState extends State<ParkingScreen> {
   LatLng? _centerOn;
   final TextEditingController _searchController = TextEditingController();
+  final MapController _mapController = MapController(); // Ajout du contrôleur de carte
 
   @override
   void initState() {
@@ -43,16 +44,17 @@ class _ParkingScreenState extends State<ParkingScreen> {
 
   void _handleSearch(dynamic item, List<ParkingVelo> parkingVeloList, List<ParkingVoiture> parkingVoitureList) {
     if (item == null) {
-      // Saisie manuelle ou effacement : filtrer selon le texte courant
       setState(() {
         _centerOn = null;
       });
     } else {
-      // Sélection d'une suggestion
+      final LatLng pos = item['obj'].position;
       setState(() {
-        _centerOn = item['obj'].position;
+        _centerOn = pos;
         _searchController.text = item['label'] ?? '';
       });
+      // Centrer la carte sur la position choisie
+      _mapController.move(pos, _mapController.camera.zoom);
     }
   }
 
@@ -119,10 +121,13 @@ class _ParkingScreenState extends State<ParkingScreen> {
                             if (item == null) {
                               // Ne rien faire ici, le filtrage se fait via le listener
                             } else {
+                              final LatLng pos = item['obj'].position;
                               setState(() {
-                                _centerOn = item['obj'].position;
+                                _centerOn = pos;
                                 _searchController.text = item['label'] ?? '';
                               });
+                              // Centrer la carte sur la position choisie
+                              _mapController.move(pos, _mapController.camera.zoom);
                             }
                           },
                         ),
@@ -139,6 +144,7 @@ class _ParkingScreenState extends State<ParkingScreen> {
                   ),
                   Expanded(
                     child: FlutterMap(
+                      mapController: _mapController, // Lier le contrôleur à la carte
                       options: MapOptions(
                         initialCenter: initialPosition,
                         initialZoom: 13,
