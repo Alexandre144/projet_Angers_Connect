@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../widgets/app_drawer.dart';
 
 class IncidentsScreen extends StatefulWidget {
@@ -12,10 +14,21 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _loading = false;
 
+  static const LatLng _angersCenter = LatLng(47.473076284, -0.57174862);
+  final MapController _mapController = MapController();
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refresh();
+
+      try {
+        _mapController.move(_angersCenter, 13.0);
+      } catch (_) {
+        // ignore si l'API diffère, la carte restera néanmoins visible
+      }
+    });
   }
 
   Future<void> _refresh() async {
@@ -61,22 +74,34 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
             ),
             const SizedBox(height: 12),
 
+            // Carte minimale affichée pour la ville d'Angers
             Expanded(
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.map, size: 64, color: Colors.grey),
-                      SizedBox(height: 8),
-                      Text('Carte'),
-                    ],
-                  ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: FlutterMap(
+                  options: MapOptions(),
+                  mapController: _mapController,
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      subdomains: const ['a', 'b', 'c'],
+                      userAgentPackageName: 'fr.angers_connect.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          width: 48,
+                          height: 48,
+                          point: _angersCenter,
+                          child: const Icon(
+                            Icons.location_on,
+                            color: Colors.red,
+                            size: 36,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
