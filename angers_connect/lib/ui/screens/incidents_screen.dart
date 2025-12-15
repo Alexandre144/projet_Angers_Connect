@@ -28,7 +28,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _cubit.load();
+      Future.microtask(() => _cubit.load());
 
       try {
         _mapController.move(_angersCenter, 13.0);
@@ -53,6 +53,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
 
   @override
   void dispose() {
+    _cubit.close();
     _searchController.dispose();
     super.dispose();
   }
@@ -87,32 +88,35 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
                   mapController: _mapController,
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      subdomains: const ['a', 'b', 'c'],
+                      // Utiliser l'URL sans {s} pour éviter les warnings OSM
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'fr.angers_connect.app',
                     ),
-                    BlocBuilder<IncidentsCubit, List<Incident>>(builder: (context, incidents) {
-                      final markers = <Marker>[
-                        Marker(
-                          width: 48,
-                          height: 48,
-                          point: _angersCenter,
-                          child: const Icon(
-                            Icons.location_on,
-                            color: Colors.blueGrey,
-                            size: 30,
+                    BlocBuilder<IncidentsCubit, List<Incident>>(
+                      bloc: _cubit,
+                      builder: (context, incidents) {
+                        final markers = <Marker>[
+                          Marker(
+                            width: 48,
+                            height: 48,
+                            point: _angersCenter,
+                            child: const Icon(
+                              Icons.location_on,
+                              color: Colors.blueGrey,
+                              size: 30,
+                            ),
                           ),
-                        ),
-                      ];
+                        ];
 
-                      for (final i in incidents) {
-                        if (i.lat != null && i.lon != null) {
-                          markers.add(Marker(width: 40, height: 40, point: LatLng(i.lat!, i.lon!), child: const Icon(Icons.place, color: Colors.red, size: 28)));
+                        for (final i in incidents) {
+                          if (i.lat != null && i.lon != null) {
+                            markers.add(Marker(width: 40, height: 40, point: LatLng(i.lat!, i.lon!), child: const Icon(Icons.place, color: Colors.red, size: 28)));
+                          }
                         }
-                      }
 
-                      return MarkerLayer(markers: markers);
-                    }),
+                        return MarkerLayer(markers: markers);
+                      },
+                    ),
                   ],
                 ),
               ),
