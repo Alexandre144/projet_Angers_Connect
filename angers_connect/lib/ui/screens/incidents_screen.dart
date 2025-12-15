@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../widgets/app_drawer.dart';
+import '../../data/models/incident_model.dart';
+import '../../data/repositories/incidents_repository.dart';
+import '../../logic/cubit/incidents_cubit.dart';
 
 class IncidentsScreen extends StatefulWidget {
   const IncidentsScreen({super.key});
@@ -14,6 +18,13 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _loading = false;
 
+  final MemoryIncidentsRepository _repo = MemoryIncidentsRepository([
+    const Incident(id: 1, title: 'Travaux rue Saint-Laud', lat: 47.4745, lon: -0.5650),
+    const Incident(id: 2, title: 'Fermeture impasse Tournemine', lat: 47.4730, lon: -0.5717),
+    const Incident(id: 3, title: 'Déviation avenue Pasteur', lat: 47.4700, lon: -0.5800),
+  ]);
+  late final IncidentsCubit _cubit = IncidentsCubit(_repo);
+
   static const LatLng _angersCenter = LatLng(47.473076284, -0.57174862);
   final MapController _mapController = MapController();
 
@@ -21,7 +32,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refresh();
+      _cubit.load();
 
       try {
         _mapController.move(_angersCenter, 13.0);
@@ -33,17 +44,15 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
 
   Future<void> _refresh() async {
     setState(() => _loading = true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Chargement des incidents...')),
-    );
-
-    // Simule un appel réseau minimal
-    await Future.delayed(const Duration(seconds: 1));
-
-    setState(() => _loading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Incidents chargés (démo)')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chargement des incidents...')));
+    try {
+      await _cubit.load();
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Incidents chargés (démo)')));
+    } catch (e) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    }
   }
 
   @override
@@ -87,20 +96,28 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
                       subdomains: const ['a', 'b', 'c'],
                       userAgentPackageName: 'fr.angers_connect.app',
                     ),
-                    MarkerLayer(
-                      markers: [
+                    BlocBuilder<IncidentsCubit, List<Incident>>(builder: (context, incidents) {
+                      final markers = <Marker>[
                         Marker(
                           width: 48,
                           height: 48,
                           point: _angersCenter,
                           child: const Icon(
                             Icons.location_on,
-                            color: Colors.red,
-                            size: 36,
+                            color: Colors.blueGrey,
+                            size: 30,
                           ),
                         ),
-                      ],
-                    ),
+                      ];
+
+                      for (final i in incidents) {
+                        if (i.lat != null && i.lon != null) {
+                          markers.add(Marker(width: 40, height: 40, point: LatLng(i.lat!, i.lon!), child: const Icon(Icons.place, color: Colors.red, size: 28)));
+                        }
+                      }
+
+                      return MarkerLayer(markers: markers);
+                    }),
                   ],
                 ),
               ),
