@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import '../widgets/app_drawer.dart';
+import '../widgets/generic_info_dialog.dart';
 
 class ParkingScreen extends StatefulWidget {
   const ParkingScreen({super.key});
@@ -48,10 +49,26 @@ class _ParkingScreenState extends State<ParkingScreen> {
                   point: parking.position,
                   width: 40,
                   height: 40,
-                  child: const Icon(
-                    Icons.location_pin,
-                    size: 40,
-                    color: Colors.red,
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => GenericInfoDialog(
+                          title: parking.nom_parkng,
+                          fields: [
+                            MapEntry('Nom', parking.nom_parkng),
+                            MapEntry('Capacité maximal', parking.capacite),
+                            MapEntry('Accès', parking.acces),
+                            MapEntry('Dernière MAJ', parking.date_maj),
+                          ],
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.location_pin,
+                      size: 40,
+                      color: Colors.red,
+                    ),
                   ),
                 );
               }).toList();
@@ -61,10 +78,24 @@ class _ParkingScreenState extends State<ParkingScreen> {
                   point: parking.position,
                   width: 40,
                   height: 40,
-                  child: const Icon(
-                    Icons.location_pin,
-                    size: 40,
-                    color: Colors.blue,
+                  child: GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => GenericInfoDialog(
+                          title: parking.nom,
+                          fields: [
+                            MapEntry('Nom', parking.nom),
+                            MapEntry('Nb places disponibles', parking.disponible),
+                          ],
+                        ),
+                      );
+                    },
+                    child: const Icon(
+                      Icons.location_pin,
+                      size: 40,
+                      color: Colors.blue,
+                    ),
                   ),
                 );
               }).toList();
