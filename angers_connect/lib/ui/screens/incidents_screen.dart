@@ -18,11 +18,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _loading = false;
 
-  final MemoryIncidentsRepository _repo = MemoryIncidentsRepository([
-    const Incident(id: 1, title: 'Travaux rue Saint-Laud', lat: 47.4745, lon: -0.5650),
-    const Incident(id: 2, title: 'Fermeture impasse Tournemine', lat: 47.4730, lon: -0.5717),
-    const Incident(id: 3, title: 'Déviation avenue Pasteur', lat: 47.4700, lon: -0.5800),
-  ]);
+  final IncidentsRepository _repo = IncidentsRepository();
   late final IncidentsCubit _cubit = IncidentsCubit(_repo);
 
   static const LatLng _angersCenter = LatLng(47.473076284, -0.57174862);
@@ -83,7 +79,6 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Carte minimale affichée pour la ville d'Angers
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
