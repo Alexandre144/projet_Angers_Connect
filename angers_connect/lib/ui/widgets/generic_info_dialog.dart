@@ -29,37 +29,24 @@ class _GenericInfoDialogState extends State<GenericInfoDialog> {
   }
 
   Future<void> _loadFavoriteStatus() async {
-    print('DEBUG: _loadFavoriteStatus appelé');
-    print('DEBUG: widget.isFavorite est ${widget.isFavorite != null ? "non null" : "null"}');
     if (widget.isFavorite != null) {
       try {
-        print('DEBUG: Appel de widget.isFavorite()...');
         final result = await widget.isFavorite!();
-        print('DEBUG: Résultat isFavorite = $result');
         if (mounted) setState(() { _isFavorite = result; _loading = false; });
-      } catch (e) {
-        print('DEBUG: Erreur dans _loadFavoriteStatus: $e');
+      } catch (_) {
         if (mounted) setState(() { _isFavorite = false; _loading = false; });
       }
     } else {
-      print('DEBUG: Pas de callback isFavorite');
       if (mounted) setState(() => _loading = false);
     }
-    print('DEBUG: _loading = $_loading, _isFavorite = $_isFavorite');
   }
 
   Future<void> _toggleFavorite() async {
-    print('DEBUG: _toggleFavorite appelé');
-    print('DEBUG: widget.onToggleFavorite est ${widget.onToggleFavorite != null ? "non null" : "null"}');
     if (widget.onToggleFavorite != null) {
       try {
-        print('DEBUG: Appel de widget.onToggleFavorite()...');
         await widget.onToggleFavorite!();
-        print('DEBUG: Toggle réussi, inversion de _isFavorite');
         if (mounted) setState(() => _isFavorite = !_isFavorite);
-      } catch (e) {
-        print('DEBUG: Erreur dans _toggleFavorite: $e');
-      }
+      } catch (_) {}
     }
   }
 

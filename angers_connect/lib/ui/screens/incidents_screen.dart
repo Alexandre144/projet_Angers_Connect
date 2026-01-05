@@ -91,36 +91,23 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   }
 
   void _showIncidentDialog(Incident incident) {
-    print('DEBUG: _showIncidentDialog appelé pour: ${incident.title}');
     final fields = _buildDialogFields(incident);
     final incidentMap = _incidentToMap(incident);
-    print('DEBUG: incidentMap créé avec id=${incidentMap['id']}');
     showDialog(
       context: context,
-      builder: (ctx) {
-        print('DEBUG: Builder du dialogue appelé');
-        return GenericInfoDialog(
-          title: incident.title,
-          fields: fields,
-          isFavorite: () {
-            print('DEBUG: Callback isFavorite appelé dans le dialogue');
-            return _favService.isFavorite(_favCategory, incidentMap);
-          },
-          onToggleFavorite: () async {
-            print('DEBUG: Callback onToggleFavorite appelé dans le dialogue');
-            final isFav = await _favService.isFavorite(_favCategory, incidentMap);
-            print('DEBUG: État actuel isFav=$isFav');
-            if (isFav) {
-              print('DEBUG: Suppression du favori...');
-              await _favService.removeFavorite(_favCategory, incidentMap);
-            } else {
-              print('DEBUG: Ajout du favori...');
-              await _favService.addFavorite(_favCategory, incidentMap);
-            }
-            print('DEBUG: Toggle terminé');
-          },
-        );
-      },
+      builder: (ctx) => GenericInfoDialog(
+        title: incident.title,
+        fields: fields,
+        isFavorite: () => _favService.isFavorite(_favCategory, incidentMap),
+        onToggleFavorite: () async {
+          final isFav = await _favService.isFavorite(_favCategory, incidentMap);
+          if (isFav) {
+            await _favService.removeFavorite(_favCategory, incidentMap);
+          } else {
+            await _favService.addFavorite(_favCategory, incidentMap);
+          }
+        },
+      ),
     );
   }
 
