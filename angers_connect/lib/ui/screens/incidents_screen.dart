@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/generic_info_dialog.dart';
-import '../../data/models/incident_model.dart';
-import '../../data/repositories/incidents_repository.dart';
-import '../../logic/cubit/incidents_cubit.dart';
-import 'package:geolocator/geolocator.dart';
+import '../widgets/search_bar_autocomplete.dart';
+import '../../models/incident_model.dart';
+import '../../repositories/incidents_repository.dart';
+import '../../blocs/incidents_cubit.dart';
 
 class IncidentsScreen extends StatefulWidget {
   const IncidentsScreen({super.key});
@@ -18,14 +19,12 @@ class IncidentsScreen extends StatefulWidget {
 
 class _IncidentsScreenState extends State<IncidentsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  bool _loading = false;
-
   final IncidentsRepository _repo = IncidentsRepository();
   late final IncidentsCubit _cubit = IncidentsCubit(_repo);
-  bool _hasSearched = false;
 
   static const LatLng _angersCenter = LatLng(47.473076284, -0.57174862);
   final MapController _mapController = MapController();
+  LatLng? _centerOn;
   Position? _userPosition;
 
   String? _formatDate(String? s) {
@@ -99,8 +98,9 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.microtask(() => _cubit.load());
+      _cubit.load();
       _initLocation();
       // Recentrer la carte sur Angers après un court délai
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -111,24 +111,24 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
     });
   }
 
-  Future<void> _refresh() async {
-    setState(() => _loading = true);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chargement des incidents...')));
-    try {
-      _hasSearched = true;
-      await _cubit.load(q: _searchController.text.trim());
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Incidents chargés (démo)')));
-    } catch (e) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
-    }
+  void _onSearchChanged() {
+    setState(() {
+      _centerOn = null;
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _centerOn = null;
+    });
   }
 
   @override
   void dispose() {
-    _cubit.close();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
@@ -139,98 +139,134 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
         title: const Text('Incidents'),
       ),
       drawer: const AppDrawer(),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _searchController,
-              onSubmitted: (value) => _refresh(),
-              decoration: InputDecoration(
-                hintText: 'Rechercher un incident (titre ou adresse)',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () => _refresh(),
-                ),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
+      body: BlocBuilder<IncidentsCubit, List<Incident>>(
+        bloc: _cubit,
+        builder: (context, incidentsList) {
+          // Filtrage en temps réel
+          final filteredIncidents = _searchController.text.isEmpty
+              ? incidentsList
+              : incidentsList.where((i) {
+                  final query = _searchController.text.toLowerCase();
+                  return (i.title.toLowerCase().contains(query)) ||
+                         (i.address?.toLowerCase().contains(query) ?? false);
+                }).toList();
 
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: FlutterMap(
-                  options: MapOptions(),
-                  mapController: _mapController,
+          // Préparer les items pour l'autocomplétion
+          final allItems = incidentsList.map((i) => {
+            'obj': i,
+            'label': i.title,
+          }).toList();
+
+          if (incidentsList.isEmpty) {
+            return const Center(
+              child: Text('Aucun incident à afficher'),
+            );
+          }
+
+          // Position initiale : centrer sur le premier incident filtré ou sur Angers
+          final initialPosition = _centerOn ??
+              (filteredIncidents.isNotEmpty && filteredIncidents.first.lat != null && filteredIncidents.first.lon != null
+                  ? LatLng(filteredIncidents.first.lat!, filteredIncidents.first.lon!)
+                  : _angersCenter);
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Stack(
+                  alignment: Alignment.centerRight,
                   children: [
-                    TileLayer(
-                      // Utiliser l'URL sans {s} pour éviter les warnings OSM
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'fr.angers_connect.app',
-                    ),
-                    BlocBuilder<IncidentsCubit, List<Incident>>(
-                      bloc: _cubit,
-                      builder: (context, incidents) {
-
-                        if (_hasSearched && incidents.isEmpty) {
-                          return Center(child: Text('Aucun résultat', style: Theme.of(context).textTheme.titleMedium));
-                        }
-
-                        final markers = <Marker>[];
-                        // centre Angers
-                        markers.add(Marker(width: 48, height: 48, point: _angersCenter, child: const Icon(Icons.location_on, color: Colors.blueGrey, size: 30)));
-
-                        for (final i in incidents) {
-                          if (i.lat != null && i.lon != null) {
-                            markers.add(Marker(
-                              width: 40,
-                              height: 40,
-                              point: LatLng(i.lat!, i.lon!),
-                              child: GestureDetector(
-                                onTap: () {
-                                  // Construire les champs pour le dialog à partir du modèle
-                                  final fields = _buildDialogFields(i);
-
-                                  showDialog(context: context, builder: (ctx) => GenericInfoDialog(title: i.title, fields: fields));
-                                },
-                                child: const Icon(Icons.place, color: Colors.red, size: 28),
-                              ),
-                            ));
+                    SearchBarAutocomplete<Map<String, dynamic>>(
+                      controller: _searchController,
+                      items: allItems,
+                      itemToString: (item) => item['label'] ?? '',
+                      hintText: 'Rechercher un incident... (titre ou adresse)',
+                      onSelected: (item) {
+                        if (item == null) {
+                          // Filtrage automatique géré par le listener
+                        } else {
+                          final Incident incident = item['obj'];
+                          if (incident.lat != null && incident.lon != null) {
+                            final pos = LatLng(incident.lat!, incident.lon!);
+                            setState(() {
+                              _centerOn = pos;
+                              _searchController.text = item['label'] ?? '';
+                            });
+                            _mapController.move(pos, _mapController.camera.zoom);
                           }
                         }
-
-                        // position utilisateur (si disponible) - icône plus visible (ajoutée en dernier pour être au-dessus)
-                        if (_userPosition != null) {
-                          markers.add(Marker(
+                      },
+                    ),
+                    if (_searchController.text.isNotEmpty)
+                      Positioned(
+                        right: 8,
+                        child: IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: _clearSearch,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: initialPosition,
+                    initialZoom: 13,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.angers_connect',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        // Incidents filtrés
+                        ...filteredIncidents.where((i) => i.lat != null && i.lon != null).map((i) {
+                          return Marker(
+                            point: LatLng(i.lat!, i.lon!),
+                            width: 40,
+                            height: 40,
+                            child: GestureDetector(
+                              onTap: () {
+                                final fields = _buildDialogFields(i);
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => GenericInfoDialog(
+                                    title: i.title,
+                                    fields: fields,
+                                  ),
+                                );
+                              },
+                              child: const Icon(
+                                Icons.location_pin,
+                                size: 40,
+                                color: Colors.red,
+                              ),
+                            ),
+                          );
+                        }),
+                        // Position utilisateur si disponible
+                        if (_userPosition != null)
+                          Marker(
+                            point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
                             width: 48,
                             height: 48,
-                            point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
-                            child: const Icon(Icons.person_pin_circle, color: Colors.blue, size: 36),
-                          ));
-                        }
-
-                        return MarkerLayer(markers: markers);
-                      },
+                            child: const Icon(
+                              Icons.person_pin_circle,
+                              color: Colors.blue,
+                              size: 36,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
-
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _loading ? null : _refresh,
-                icon: _loading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.refresh),
-                label: Text(_loading ? 'Chargement...' : 'Actualiser'),
-              ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
