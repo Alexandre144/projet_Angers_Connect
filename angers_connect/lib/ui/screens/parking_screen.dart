@@ -134,20 +134,27 @@ class _ParkingScreenState extends State<ParkingScreen> {
         },
         onItemTap: (item) {
           final type = item['type']?.toString() ?? '';
+          final lat = item['lat'] ?? 0.0;
+          final lon = item['lon'] ?? 0.0;
+          final position = LatLng(lat, lon);
+
+          setState(() => _centerOn = position);
+          _mapController.move(position, 16.0);
+
           if (type == 'velo') {
             final parking = ParkingVelo(
               item['nom_parkng']?.toString() ?? '',
               item['capacite']?.toString() ?? '',
               item['acces']?.toString() ?? '',
               item['date_maj']?.toString() ?? '',
-              LatLng(item['lat'] ?? 0.0, item['lon'] ?? 0.0),
+              position,
             );
             _showParkingVeloDialog(parking);
           } else {
             final parking = ParkingVoiture(
               item['nom']?.toString() ?? '',
               item['disponible']?.toString() ?? '',
-              LatLng(item['lat'] ?? 0.0, item['lon'] ?? 0.0),
+              position,
             );
             _showParkingVoitureDialog(parking);
           }

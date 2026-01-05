@@ -123,6 +123,14 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
         favorites: favorites,
         itemTitle: (item) => item['title']?.toString() ?? 'Sans titre',
         onItemTap: (item) {
+          final lat = item['lat'];
+          final lon = item['lon'];
+          if (lat != null && lon != null) {
+            final position = LatLng(lat, lon);
+            setState(() => _centerOn = position);
+            _mapController.move(position, 16.0);
+          }
+
           final incident = Incident(
             id: item['id'] ?? 0,
             title: item['title'] ?? '',
