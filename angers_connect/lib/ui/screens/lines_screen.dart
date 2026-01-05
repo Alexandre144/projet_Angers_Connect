@@ -98,22 +98,28 @@ class _LinesScreenState extends State<LinesScreen> {
                   ),
                   PolylineLayer(
                     polylines: [
-                      ...trams.where((l) => visibleTramLines.contains(l.routeShortName)).map((tramLine) {
-                        final List<LatLng> points = tramLine.shapeCoordinates.expand((line) => line.map((coord) => LatLng(coord[1], coord[0]))).toList();
-                        return Polyline(
-                          points: points,
-                          color: Color(int.parse('FF${tramLine.routeColor}', radix: 16)),
-                          strokeWidth: 5.0,
-                        );
-                      }),
-                      ...bus.where((l) => visibleBusLines.contains(l.routeShortName)).map((busLine) {
-                        final List<LatLng> points = busLine.shapeCoordinates.expand((line) => line.map((coord) => LatLng(coord[1], coord[0]))).toList();
-                        return Polyline(
-                          points: points,
-                          color: Color(int.parse('FF${busLine.routeColor}', radix: 16)),
-                          strokeWidth: 5.0,
-                        );
-                      }),
+                      // Pour chaque ligne de tram, créer une polyline par tronçon (MultiLineString)
+                      ...trams.where((l) => visibleTramLines.contains(l.routeShortName)).expand((tramLine) =>
+                        tramLine.shapeCoordinates.map((segment) {
+                          final List<LatLng> points = segment.map((coord) => LatLng(coord[1], coord[0])).toList();
+                          return Polyline(
+                            points: points,
+                            color: Color(int.parse('FF${tramLine.routeColor}', radix: 16)),
+                            strokeWidth: 5.0,
+                          );
+                        })
+                      ),
+                      // Pour chaque ligne de bus, idem
+                      ...bus.where((l) => visibleBusLines.contains(l.routeShortName)).expand((busLine) =>
+                        busLine.shapeCoordinates.map((segment) {
+                          final List<LatLng> points = segment.map((coord) => LatLng(coord[1], coord[0])).toList();
+                          return Polyline(
+                            points: points,
+                            color: Color(int.parse('FF${busLine.routeColor}', radix: 16)),
+                            strokeWidth: 5.0,
+                          );
+                        })
+                      ),
                     ],
                   ),
                 ],
