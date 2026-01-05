@@ -25,6 +25,7 @@ class _ParkingScreenState extends State<ParkingScreen> {
   final MapController _mapController = MapController();
   final FavoritesService _favService = FavoritesService();
   static const String _favCategory = 'parkings';
+  int _favoritesVersion = 0;
 
   @override
   void initState() {
@@ -88,6 +89,7 @@ class _ParkingScreenState extends State<ParkingScreen> {
           } else {
             await _favService.addFavorite(_favCategory, parkingMap);
           }
+          setState(() => _favoritesVersion++);
         },
       ),
     );
@@ -111,6 +113,7 @@ class _ParkingScreenState extends State<ParkingScreen> {
           } else {
             await _favService.addFavorite(_favCategory, parkingMap);
           }
+          setState(() => _favoritesVersion++);
         },
       ),
     );
@@ -191,63 +194,87 @@ class _ParkingScreenState extends State<ParkingScreen> {
                 return const Center(child: Text('Aucun parking à afficher'));
               }
 
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Stack(
-                      alignment: Alignment.centerRight,
-                      children: [
-                        SearchBarAutocomplete<Map<String, dynamic>>(
-                          controller: _searchController,
-                          items: allItems,
-                          itemToString: (item) => item['label'] ?? '',
-                          hintText: 'Rechercher un parking...',
-                          onSelected: (item) {
-                            if (item != null) {
-                              final LatLng pos = item['obj'].position;
-                              setState(() { _centerOn = pos; _searchController.text = item['label'] ?? ''; });
-                              _mapController.move(pos, _mapController.camera.zoom);
-                            }
-                          },
-                        ),
-                        if (_searchController.text.isNotEmpty)
-                          Positioned(right: 8, child: IconButton(icon: const Icon(Icons.clear), onPressed: _clearSearch)),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(initialCenter: initialPosition, initialZoom: 13),
-                      children: [
-                        TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.angers_connect'),
-                        MarkerLayer(
-                          markers: [
-                            ...filteredVelos.map((parking) => Marker(
-                              point: parking.position,
-                              width: 40,
-                              height: 40,
-                              child: GestureDetector(
-                                onTap: () => _showParkingVeloDialog(parking),
-                                child: const Icon(Icons.location_pin, size: 40, color: Colors.red),
-                              ),
-                            )),
-                            ...filteredVoitures.map((parking) => Marker(
-                              point: parking.position,
-                              width: 40,
-                              height: 40,
-                              child: GestureDetector(
-                                onTap: () => _showParkingVoitureDialog(parking),
-                                child: const Icon(Icons.location_pin, size: 40, color: Colors.blue),
-                              ),
-                            )),
+              return FutureBuilder<List<Map<String, dynamic>>>(
+                key: ValueKey(_favoritesVersion),
+                future: _favService.getFavorites(_favCategory),
+                builder: (context, snapshot) {
+                  final favoriteIds = <String>{};
+                  if (snapshot.hasData) {
+                    for (final fav in snapshot.data!) {
+                      final name = fav['nom'] ?? fav['nom_parkng'] ?? '';
+                      final lat = fav['lat']?.toString() ?? '';
+                      final lon = fav['lon']?.toString() ?? '';
+                      favoriteIds.add('${name}_${lat}_$lon');
+                    }
+                  }
+
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Stack(
+                          alignment: Alignment.centerRight,
+                          children: [
+                            SearchBarAutocomplete<Map<String, dynamic>>(
+                              controller: _searchController,
+                              items: allItems,
+                              itemToString: (item) => item['label'] ?? '',
+                              hintText: 'Rechercher un parking...',
+                              onSelected: (item) {
+                                if (item != null) {
+                                  final LatLng pos = item['obj'].position;
+                                  setState(() { _centerOn = pos; _searchController.text = item['label'] ?? ''; });
+                                  _mapController.move(pos, _mapController.camera.zoom);
+                                }
+                              },
+                            ),
+                            if (_searchController.text.isNotEmpty)
+                              Positioned(right: 8, child: IconButton(icon: const Icon(Icons.clear), onPressed: _clearSearch)),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                      Expanded(
+                        child: FlutterMap(
+                          mapController: _mapController,
+                          options: MapOptions(initialCenter: initialPosition, initialZoom: 13),
+                          children: [
+                            TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.angers_connect'),
+                            MarkerLayer(
+                              markers: [
+                                ...filteredVelos.map((parking) {
+                                  final parkingId = '${parking.nom_parkng}_${parking.position.latitude}_${parking.position.longitude}';
+                                  final isFavorite = favoriteIds.contains(parkingId);
+                                  return Marker(
+                                    point: parking.position,
+                                    width: 40,
+                                    height: 40,
+                                    child: GestureDetector(
+                                      onTap: () => _showParkingVeloDialog(parking),
+                                      child: Icon(Icons.location_pin, size: 40, color: isFavorite ? Colors.amber : Colors.red),
+                                    ),
+                                  );
+                                }),
+                                ...filteredVoitures.map((parking) {
+                                  final parkingId = '${parking.nom}_${parking.position.latitude}_${parking.position.longitude}';
+                                  final isFavorite = favoriteIds.contains(parkingId);
+                                  return Marker(
+                                    point: parking.position,
+                                    width: 40,
+                                    height: 40,
+                                    child: GestureDetector(
+                                      onTap: () => _showParkingVoitureDialog(parking),
+                                      child: Icon(Icons.location_pin, size: 40, color: isFavorite ? Colors.amber : Colors.blue),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           );

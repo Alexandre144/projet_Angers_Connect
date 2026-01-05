@@ -25,6 +25,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
   late final IncidentsCubit _cubit = IncidentsCubit(_repo);
   final FavoritesService _favService = FavoritesService();
   static const String _favCategory = 'incidents';
+  int _favoritesVersion = 0;
 
   static const LatLng _angersCenter = LatLng(47.473076284, -0.57174862);
   final MapController _mapController = MapController();
@@ -106,6 +107,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
           } else {
             await _favService.addFavorite(_favCategory, incidentMap);
           }
+          setState(() => _favoritesVersion++);
         },
       ),
     );
@@ -208,66 +210,80 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
                   ? LatLng(filteredIncidents.first.lat!, filteredIncidents.first.lon!)
                   : _angersCenter);
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Stack(
-                  alignment: Alignment.centerRight,
-                  children: [
-                    SearchBarAutocomplete<Map<String, dynamic>>(
-                      controller: _searchController,
-                      items: allItems,
-                      itemToString: (item) => item['label'] ?? '',
-                      hintText: 'Rechercher un incident...',
-                      onSelected: (item) {
-                        if (item != null) {
-                          final Incident incident = item['obj'];
-                          if (incident.lat != null && incident.lon != null) {
-                            final pos = LatLng(incident.lat!, incident.lon!);
-                            setState(() { _centerOn = pos; _searchController.text = item['label'] ?? ''; });
-                            _mapController.move(pos, _mapController.camera.zoom);
-                          }
-                        }
-                      },
-                    ),
-                    if (_searchController.text.isNotEmpty)
-                      Positioned(right: 8, child: IconButton(icon: const Icon(Icons.clear), onPressed: _clearSearch)),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(initialCenter: initialPosition, initialZoom: 13),
-                  children: [
-                    TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.angers_connect'),
-                    MarkerLayer(
-                      markers: [
-                        ...filteredIncidents.where((i) => i.lat != null && i.lon != null).map((i) {
-                          return Marker(
-                            point: LatLng(i.lat!, i.lon!),
-                            width: 40,
-                            height: 40,
-                            child: GestureDetector(
-                              onTap: () => _showIncidentDialog(i),
-                              child: const Icon(Icons.location_pin, size: 40, color: Colors.red),
-                            ),
-                          );
-                        }),
-                        if (_userPosition != null)
-                          Marker(
-                            point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
-                            width: 48,
-                            height: 48,
-                            child: const Icon(Icons.person_pin_circle, color: Colors.blue, size: 36),
-                          ),
+          return FutureBuilder<List<Map<String, dynamic>>>(
+            key: ValueKey(_favoritesVersion),
+            future: _favService.getFavorites(_favCategory),
+            builder: (context, snapshot) {
+              final favoriteIds = <String>{};
+              if (snapshot.hasData) {
+                for (final fav in snapshot.data!) {
+                  favoriteIds.add('id_${fav['id']}');
+                }
+              }
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Stack(
+                      alignment: Alignment.centerRight,
+                      children: [
+                        SearchBarAutocomplete<Map<String, dynamic>>(
+                          controller: _searchController,
+                          items: allItems,
+                          itemToString: (item) => item['label'] ?? '',
+                          hintText: 'Rechercher un incident...',
+                          onSelected: (item) {
+                            if (item != null) {
+                              final Incident incident = item['obj'];
+                              if (incident.lat != null && incident.lon != null) {
+                                final pos = LatLng(incident.lat!, incident.lon!);
+                                setState(() { _centerOn = pos; _searchController.text = item['label'] ?? ''; });
+                                _mapController.move(pos, _mapController.camera.zoom);
+                              }
+                            }
+                          },
+                        ),
+                        if (_searchController.text.isNotEmpty)
+                          Positioned(right: 8, child: IconButton(icon: const Icon(Icons.clear), onPressed: _clearSearch)),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                  Expanded(
+                    child: FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(initialCenter: initialPosition, initialZoom: 13),
+                      children: [
+                        TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.example.angers_connect'),
+                        MarkerLayer(
+                          markers: [
+                            ...filteredIncidents.where((i) => i.lat != null && i.lon != null).map((i) {
+                              final isFavorite = favoriteIds.contains('id_${i.id}');
+                              return Marker(
+                                point: LatLng(i.lat!, i.lon!),
+                                width: 40,
+                                height: 40,
+                                child: GestureDetector(
+                                  onTap: () => _showIncidentDialog(i),
+                                  child: Icon(Icons.location_pin, size: 40, color: isFavorite ? Colors.amber : Colors.red),
+                                ),
+                              );
+                            }),
+                            if (_userPosition != null)
+                              Marker(
+                                point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
+                                width: 48,
+                                height: 48,
+                                child: const Icon(Icons.person_pin_circle, color: Colors.blue, size: 36),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
