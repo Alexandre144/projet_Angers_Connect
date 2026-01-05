@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'ui/screens/lines_screen.dart';
 import 'ui/screens/parking_screen.dart';
 import 'ui/screens/incidents_screen.dart';
+import 'repositories/parking_velo_repository.dart';
+import 'repositories/parking_voiture_repository.dart';
+import 'blocs/parking_velo_cubit.dart';
+import 'blocs/parking_voiture_cubit.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +27,17 @@ class MyApp extends StatelessWidget {
       initialRoute: '/lines',
       routes: {
         '/lines': (context) => const LinesScreen(),
-        '/parking': (context) => const ParkingScreen(),
+        '/parking': (context) => MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) => ParkingVeloCubit(ParkingVeloRepository()),
+                ),
+                BlocProvider(
+                  create: (_) => ParkingVoitureCubit(ParkingVoitureRepository()),
+                ),
+              ],
+              child: const ParkingScreen(),
+            ),
         '/incidents': (context) => const IncidentsScreen(),
       },
     );
