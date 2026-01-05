@@ -5,8 +5,10 @@ import 'ui/screens/parking_screen.dart';
 import 'ui/screens/incidents_screen.dart';
 import 'repositories/parking_velo_repository.dart';
 import 'repositories/parking_voiture_repository.dart';
+import 'repositories/tram_line_repository.dart';
 import 'blocs/parking_velo_cubit.dart';
 import 'blocs/parking_voiture_cubit.dart';
+import 'blocs/tram_line_cubit.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +28,10 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/lines',
       routes: {
-        '/lines': (context) => const LinesScreen(),
+        '/lines': (context) => BlocProvider(
+              create: (_) => TramLineCubit(TramLineRepository()),
+              child: const LinesScreen(),
+            ),
         '/parking': (context) => MultiBlocProvider(
               providers: [
                 BlocProvider(
