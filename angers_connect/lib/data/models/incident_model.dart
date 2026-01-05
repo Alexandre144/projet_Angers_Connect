@@ -3,8 +3,9 @@ class Incident {
   final String title;
   final double? lat;
   final double? lon;
+  final Map<String, dynamic>? rawFields;
 
-  const Incident({required this.id, required this.title, this.lat, this.lon});
+  const Incident({required this.id, required this.title, this.lat, this.lon, this.rawFields});
 
   factory Incident.fromJson(Map<String, dynamic> json) {
     final fields = json['fields'] is Map ? Map<String, dynamic>.from(json['fields']) : Map<String, dynamic>.from(json);
@@ -20,7 +21,7 @@ class Incident {
       lon = (gp[1] is num) ? (gp[1] as num).toDouble() : double.tryParse('${gp[1]}');
     }
 
-    return Incident(id: id, title: title, lat: lat, lon: lon);
+    return Incident(id: id, title: title, lat: lat, lon: lon, rawFields: fields);
   }
 
   Map<String, dynamic> toJson() => {
@@ -28,4 +29,19 @@ class Incident {
         'title': title,
         if (lat != null && lon != null) 'geo_point_2d': [lat, lon],
       };
+
+  // Getters pratiques
+  String? get description => rawFields?['description']?.toString();
+  String? get address => rawFields?['address']?.toString();
+  String? get startAt => rawFields?['startat']?.toString();
+  String? get endAt => rawFields?['endat']?.toString();
+  String? get traffic => rawFields?['traffic']?.toString();
+  String? get contact => rawFields?['contact']?.toString();
+  String? get email => rawFields?['email']?.toString();
+  int? get isTramway => (rawFields?['istramway'] is int) ? rawFields!['istramway'] as int : (rawFields?['istramway'] != null ? int.tryParse('${rawFields!['istramway']}') : null);
+  String? get idParking => rawFields?['idparking']?.toString();
+  String? get image => rawFields?['image']?.toString();
+  String? get imageText => rawFields?['imagetext']?.toString();
+  String? get link => rawFields?['link']?.toString();
+  String? get type => rawFields?['type']?.toString();
 }

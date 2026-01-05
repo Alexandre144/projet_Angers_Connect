@@ -7,7 +7,7 @@ class IncidentsRepository {
   final String baseUrl;
 
   IncidentsRepository([List<Incident>? initial, String? baseUrl])
-      : baseUrl = baseUrl ?? 'https://data.angers.fr/api/records/1.0/search/?dataset=info-travaux' {
+      : baseUrl = baseUrl ?? 'https://data.angers.fr/api/records/1.0/search/?dataset=info-travaux&rows=200' {
     if (initial != null) _incidents.addAll(initial);
   }
 

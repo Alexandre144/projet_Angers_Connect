@@ -7,13 +7,12 @@ class IncidentsCubit extends Cubit<List<Incident>> {
 
   IncidentsCubit(this.repository) : super(const []);
 
-  Future<void> load() async {
+  Future<void> load({String? q}) async {
     try {
-      final list = await repository.getIncidents();
+      final list = await repository.getIncidents(q: q, forceRefresh: true);
       emit(list);
     } catch (_) {
       emit(const []);
     }
   }
 }
-
