@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -11,6 +12,7 @@ import '../../models/incident_model.dart';
 import '../../repositories/incidents_repository.dart';
 import '../../blocs/incidents_cubit.dart';
 import '../../services/favorites_service.dart';
+import '../../services/geolocation_helper.dart';
 
 class IncidentsScreen extends StatefulWidget {
   const IncidentsScreen({super.key});
@@ -146,17 +148,14 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
 
   Future<void> _initLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) return;
+      final pos = await GeolocationHelper.getCurrentPosition();
+      if (pos == null) return;
+      if (mounted) {
+        setState(() => _userPosition = pos);
       }
-      if (permission == LocationPermission.deniedForever) return;
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
-      setState(() => _userPosition = pos);
-    } catch (_) {}
+    } catch (_) {
+      // Géolocalisation optionnelle
+    }
   }
 
   @override
@@ -282,7 +281,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
                                 point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
                                 width: 48,
                                 height: 48,
-                                child: const Icon(Icons.person_pin_circle, color: Colors.blue, size: 36),
+                                child: const Icon(Icons.person_pin_circle, color: Colors.green, size: 48),
                               ),
                           ],
                         ),

@@ -1,13 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'dart:io';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../../blocs/tram_line_cubit.dart';
 import '../../models/tram_line.dart';
 import '../../models/tram_arret.dart';
 import '../../blocs/tram_arret_cubit.dart';
 import '../../services/favorites_service.dart';
+import '../../services/geolocation_helper.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/generic_info_dialog.dart';
 import '../widgets/favorites_list_dialog.dart';
@@ -31,30 +34,47 @@ class _LinesScreenState extends State<LinesScreen> {
   static const String _favCategory = 'arrets';
   int _favoritesVersion = 0;
   final MapController _mapController = MapController();
+  Position? _userPosition;
+
+  Future<void> _initLocation() async {
+    try {
+      final pos = await GeolocationHelper.getCurrentPosition();
+      if (pos == null) return;
+      if (mounted) {
+        setState(() => _userPosition = pos);
+      }
+    } catch (_) {
+      // Géolocalisation optionnelle
+    }
+  }
 
   Future<void> loadLineStopMapping() async {
     if (mappingLoaded) return;
-    final file = File('lib/annexes/arrets_lignes_irigo.txt');
-    if (!await file.exists()) return;
-    final lines = await file.readAsLines();
-    final Map<String, Set<String>> map = {};
-    for (final l in lines.skip(1)) { // skip header
-      final parts = l.split(';');
-      if (parts.length < 4) continue;
-      final routeShortName = parts[3].trim().toUpperCase();
-      final stopId = parts[1].trim().toUpperCase();
-      map.putIfAbsent(routeShortName, () => <String>{}).add(stopId);
+    try {
+      final rawTxt = await rootBundle.loadString('assets/data/arrets_lignes_irigo.txt');
+      final lines = rawTxt.split('\n');
+      final Map<String, Set<String>> map = {};
+      for (final l in lines.skip(1)) {
+        final parts = l.split(';');
+        if (parts.length < 4) continue;
+        final routeShortName = parts[3].trim().toUpperCase();
+        final stopId = parts[1].trim().toUpperCase();
+        map.putIfAbsent(routeShortName, () => <String>{}).add(stopId);
+      }
+      setState(() {
+        lineToStops = map;
+        mappingLoaded = true;
+      });
+    } catch (_) {
+      // Fichier optionnel
     }
-    setState(() {
-      lineToStops = map;
-      mappingLoaded = true;
-    });
   }
 
   @override
   void initState() {
     super.initState();
     loadLineStopMapping();
+    _initLocation();
   }
 
   Map<String, dynamic> _arretToMap(TramArret arret) {
@@ -287,6 +307,13 @@ class _LinesScreenState extends State<LinesScreen> {
                                   ),
                                 );
                               }),
+                              if (_userPosition != null)
+                                Marker(
+                                  point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
+                                  width: 48,
+                                  height: 48,
+                                  child: const Icon(Icons.person_pin_circle, color: Colors.green, size: 48),
+                                ),
                             ],
                           ),
                     ],

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:angers_connect/blocs/parking_velo_cubit.dart';
 import 'package:angers_connect/blocs/parking_voiture_cubit.dart';
 import 'package:angers_connect/models/parking_velo.dart';
@@ -6,11 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/generic_info_dialog.dart';
 import '../widgets/search_bar_autocomplete.dart';
 import '../widgets/favorites_list_dialog.dart';
 import '../../services/favorites_service.dart';
+import '../../services/geolocation_helper.dart';
 
 class ParkingScreen extends StatefulWidget {
   const ParkingScreen({super.key});
@@ -26,11 +29,25 @@ class _ParkingScreenState extends State<ParkingScreen> {
   final FavoritesService _favService = FavoritesService();
   static const String _favCategory = 'parkings';
   int _favoritesVersion = 0;
+  Position? _userPosition;
+
+  Future<void> _initLocation() async {
+    try {
+      final pos = await GeolocationHelper.getCurrentPosition();
+      if (pos == null) return;
+      if (mounted) {
+        setState(() => _userPosition = pos);
+      }
+    } catch (_) {
+      // Géolocalisation optionnelle
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _initLocation();
   }
 
   @override
@@ -274,6 +291,13 @@ class _ParkingScreenState extends State<ParkingScreen> {
                                     ),
                                   );
                                 }),
+                                if (_userPosition != null)
+                                  Marker(
+                                    point: LatLng(_userPosition!.latitude, _userPosition!.longitude),
+                                    width: 48,
+                                    height: 48,
+                                    child: const Icon(Icons.person_pin_circle, color: Colors.green, size: 48),
+                                  ),
                               ],
                             ),
                           ],
