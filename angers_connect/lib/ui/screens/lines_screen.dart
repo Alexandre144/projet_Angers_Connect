@@ -7,8 +7,10 @@ import '../../blocs/tram_line_cubit.dart';
 import '../../models/tram_line.dart';
 import '../../models/tram_arret.dart';
 import '../../blocs/tram_arret_cubit.dart';
+import '../../services/favorites_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/generic_info_dialog.dart';
+import '../widgets/favorites_list_dialog.dart';
 
 class LinesScreen extends StatefulWidget {
   const LinesScreen({super.key});
@@ -18,14 +20,17 @@ class LinesScreen extends StatefulWidget {
 }
 
 class _LinesScreenState extends State<LinesScreen> {
-  // Par défaut, seules les lignes de tram A, B, C sont visibles
   final Set<String> visibleTramLines = {'A', 'B', 'C'};
   final Set<String> visibleBusLines = {};
   bool showTramDropdown = false;
   bool showBusDropdown = false;
-  // Mapping ligne -> arrêts (stop_id)
   Map<String, Set<String>> lineToStops = {};
   bool mappingLoaded = false;
+
+  final FavoritesService _favService = FavoritesService();
+  static const String _favCategory = 'arrets';
+  int _favoritesVersion = 0;
+  final MapController _mapController = MapController();
 
   Future<void> loadLineStopMapping() async {
     if (mappingLoaded) return;
@@ -52,11 +57,94 @@ class _LinesScreenState extends State<LinesScreen> {
     loadLineStopMapping();
   }
 
+  Map<String, dynamic> _arretToMap(TramArret arret) {
+    return {
+      'stopId': arret.stopId,
+      'stopCode': arret.stopCode,
+      'stopName': arret.stopName,
+      'lat': arret.lat,
+      'lon': arret.lon,
+      'stopDesc': arret.stopDesc,
+      'parentStation': arret.parentStation,
+      'stopTimezone': arret.stopTimezone,
+      'accessible': arret.accessible,
+      'routeShortNames': arret.routeShortNames.toList(),
+    };
+  }
+
+  void _showArretDialog(TramArret arret) {
+    final arretMap = _arretToMap(arret);
+    showDialog(
+      context: context,
+      builder: (ctx) => GenericInfoDialog(
+        title: arret.stopName,
+        fields: [
+          MapEntry('Code', arret.stopCode),
+          MapEntry('Nom', arret.stopName),
+          if (arret.stopDesc != null && arret.stopDesc!.isNotEmpty)
+            MapEntry('Description', arret.stopDesc),
+          MapEntry('Accessibilité', arret.accessible ? 'Oui' : 'Non'),
+          if (arret.parentStation != null && arret.parentStation!.isNotEmpty)
+            MapEntry('Station parente', arret.parentStation),
+          MapEntry('Fuseau horaire', arret.stopTimezone),
+          MapEntry('Coordonnées', '(${arret.lat}, ${arret.lon})'),
+        ],
+        isFavorite: () => _favService.isFavorite(_favCategory, arretMap),
+        onToggleFavorite: () async {
+          final isFav = await _favService.isFavorite(_favCategory, arretMap);
+          if (isFav) {
+            await _favService.removeFavorite(_favCategory, arretMap);
+          } else {
+            await _favService.addFavorite(_favCategory, arretMap);
+          }
+          setState(() => _favoritesVersion++);
+        },
+      ),
+    );
+  }
+
+  Future<void> _showFavoritesList() async {
+    final favorites = await _favService.getFavorites(_favCategory);
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => FavoritesListDialog(
+        title: 'Favoris - Arrêts',
+        favorites: favorites,
+        itemTitle: (item) => item['stopName']?.toString() ?? 'Sans nom',
+        onItemTap: (item) {
+          final lat = item['lat'];
+          final lon = item['lon'];
+          if (lat != null && lon != null) {
+            final position = LatLng(lat, lon);
+            _mapController.move(position, 16.0);
+          }
+          final arret = TramArret(
+            stopId: item['stopId']?.toString() ?? '',
+            stopCode: item['stopCode']?.toString() ?? '',
+            stopName: item['stopName']?.toString() ?? '',
+            lat: item['lat'] ?? 0.0,
+            lon: item['lon'] ?? 0.0,
+            stopDesc: item['stopDesc']?.toString(),
+            parentStation: item['parentStation']?.toString(),
+            stopTimezone: item['stopTimezone']?.toString() ?? '',
+            accessible: item['accessible'] == true,
+            routeShortNames: Set<String>.from((item['routeShortNames'] as List?)?.map((e) => e.toString()) ?? []),
+          );
+          _showArretDialog(arret);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lignes Bus / Tram'),
+        actions: [
+          IconButton(icon: const Icon(Icons.star), tooltip: 'Favoris', onPressed: _showFavoritesList),
+        ],
       ),
       drawer: const AppDrawer(),
       body: BlocBuilder<TramLineCubit, List<TramLine>>(
@@ -128,13 +216,25 @@ class _LinesScreenState extends State<LinesScreen> {
                 return arret.routeShortNames.any((ligne) => lignesVisibles.contains(ligne));
               }).toList();
               final arretsVisibles = arretsFiltres;
-              return Stack(
-                children: [
-                  FlutterMap(
-                    options: MapOptions(
-                      initialCenter: initialCenter,
-                      initialZoom: 12,
-                    ),
+              return FutureBuilder<List<Map<String, dynamic>>>(
+                key: ValueKey(_favoritesVersion),
+                future: _favService.getFavorites(_favCategory),
+                builder: (context, snapshot) {
+                  final favoriteIds = <String>{};
+                  if (snapshot.hasData) {
+                    for (final fav in snapshot.data!) {
+                      final stopId = fav['stopId']?.toString() ?? '';
+                      favoriteIds.add(stopId);
+                    }
+                  }
+                  return Stack(
+                    children: [
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: initialCenter,
+                          initialZoom: 12,
+                        ),
                     children: [
                       TileLayer(
                         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -167,43 +267,28 @@ class _LinesScreenState extends State<LinesScreen> {
                         ],
                       ),
                       MarkerLayer(
-                        markers: [
-                          ...arretsVisibles.map((arret) => Marker(
-                            point: LatLng(arret.lat, arret.lon),
-                            width: 36,
-                            height: 36,
-                            child: GestureDetector(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => GenericInfoDialog(
-                                    title: arret.stopName,
-                                    fields: [
-                                      MapEntry('Code', arret.stopCode),
-                                      MapEntry('Nom', arret.stopName),
-                                      if (arret.stopDesc != null && arret.stopDesc!.isNotEmpty)
-                                        MapEntry('Description', arret.stopDesc),
-                                      MapEntry('Accessibilité', arret.accessible ? 'Oui' : 'Non'),
-                                      if (arret.parentStation != null && arret.parentStation!.isNotEmpty)
-                                        MapEntry('Station parente', arret.parentStation),
-                                      MapEntry('Fuseau horaire', arret.stopTimezone),
-                                      MapEntry('Coordonnées', '(${arret.lat}, ${arret.lon})'),
-                                    ],
+                            markers: [
+                              ...arretsVisibles.map((arret) {
+                                final isFavorite = favoriteIds.contains(arret.stopId);
+                                return Marker(
+                                  point: LatLng(arret.lat, arret.lon),
+                                  width: 36,
+                                  height: 36,
+                                  child: GestureDetector(
+                                    onTap: () => _showArretDialog(arret),
+                                    child: Tooltip(
+                                      message: arret.stopName,
+                                      child: Icon(
+                                        arret.accessible ? Icons.location_on : Icons.location_on_outlined,
+                                        color: isFavorite ? Colors.amber : (arret.accessible ? Colors.blue : Colors.grey),
+                                        size: 28,
+                                      ),
+                                    ),
                                   ),
                                 );
-                              },
-                              child: Tooltip(
-                                message: arret.stopName,
-                                child: Icon(
-                                  arret.accessible ? Icons.location_on : Icons.location_on_outlined,
-                                  color: arret.accessible ? Colors.blue : Colors.grey,
-                                  size: 28,
-                                ),
-                              ),
-                            ),
-                          )),
-                        ],
-                      ),
+                              }),
+                            ],
+                          ),
                     ],
                   ),
                   // Boutons Tram et Bus en bas à gauche
@@ -362,11 +447,13 @@ class _LinesScreenState extends State<LinesScreen> {
                     ),
                   ),
                 ],
-              );
-            }, // Fin BlocBuilder TramArretCubit
-          ); // Fin BlocBuilder TramArretCubit
-        }, // Fin BlocBuilder TramLineCubit
-      ), // Fin BlocBuilder TramLineCubit
+                    );
+                  },
+                );
+            },
+          );
+        },
+      ),
     );
   }
 }
