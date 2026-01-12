@@ -1,26 +1,26 @@
 import 'package:latlong2/latlong.dart';
 
 class ParkingVelo {
-  final String nom_parkng;
+  final String nomParkng;
   final String capacite;
   final String acces;
-  final String date_maj;
+  final String dateMaj;
   final LatLng position;
 
   const ParkingVelo(
-    this.nom_parkng,
+    this.nomParkng,
     this.capacite,
     this.acces,
-    this.date_maj,
+    this.dateMaj,
     this.position,
   );
 
   Map<String, dynamic> toJson() {
     return {
-      'nom_parkng': nom_parkng,
+      'nom_parkng': nomParkng,
       'capacite': capacite,
       'acces': acces,
-      'date_maj': date_maj,
+      'date_maj': dateMaj,
       'lon': position.longitude,
       'lat': position.latitude,
     };

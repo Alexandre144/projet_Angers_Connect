@@ -13,10 +13,10 @@ class TramLineRepository {
     bool firstRequest = true;
 
     do {
-      final url = baseUrl + '&start=$start';
+      final url = '$baseUrl&start=$start';
       final Response response = await get(Uri.parse(url));
       if (response.statusCode != 200) {
-        throw Exception('Failed to load tram lines (status: \\${response.statusCode})');
+        throw Exception('Failed to load tram lines (status: ${response.statusCode})');
       }
       final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
       if (firstRequest) {

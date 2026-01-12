@@ -28,7 +28,7 @@ class TramLine {
       routeColor: fields['route_color'] ?? '',
       routeType: fields['route_type'] ?? '',
       shapeCoordinates: shape is List
-          ? (shape as List)
+          ? shape
               .map<List<List<double>>>((l) => (l as List)
                   .map<List<double>>((ll) => (ll as List)
                       .map<double>((v) => v.toDouble())

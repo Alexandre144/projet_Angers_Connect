@@ -50,10 +50,10 @@ class _ParkingScreenState extends State<ParkingScreen> {
   Map<String, dynamic> _parkingVeloToMap(ParkingVelo p) {
     return {
       'type': 'velo',
-      'nom_parkng': p.nom_parkng,
+      'nom_parkng': p.nomParkng,
       'capacite': p.capacite,
       'acces': p.acces,
-      'date_maj': p.date_maj,
+      'date_maj': p.dateMaj,
       'lat': p.position.latitude,
       'lon': p.position.longitude,
     };
@@ -74,12 +74,12 @@ class _ParkingScreenState extends State<ParkingScreen> {
     showDialog(
       context: context,
       builder: (ctx) => GenericInfoDialog(
-        title: parking.nom_parkng,
+        title: parking.nomParkng,
         fields: [
-          MapEntry('Nom', parking.nom_parkng),
+          MapEntry('Nom', parking.nomParkng),
           MapEntry('Capacité maximal', parking.capacite),
           MapEntry('Accès', parking.acces),
-          MapEntry('Dernière MAJ', parking.date_maj),
+          MapEntry('Dernière MAJ', parking.dateMaj),
         ],
         isFavorite: () => _favService.isFavorite(_favCategory, parkingMap),
         onToggleFavorite: () async {
@@ -179,13 +179,13 @@ class _ParkingScreenState extends State<ParkingScreen> {
             builder: (context, parkingVoitureList) {
               List<ParkingVelo> filteredVelos = _searchController.text.isEmpty
                   ? parkingVeloList
-                  : parkingVeloList.where((p) => p.nom_parkng.toLowerCase().contains(_searchController.text.toLowerCase())).toList();
+                  : parkingVeloList.where((p) => p.nomParkng.toLowerCase().contains(_searchController.text.toLowerCase())).toList();
               List<ParkingVoiture> filteredVoitures = _searchController.text.isEmpty
                   ? parkingVoitureList
                   : parkingVoitureList.where((p) => p.nom.toLowerCase().contains(_searchController.text.toLowerCase())).toList();
 
               final allItems = [
-                ...parkingVeloList.map((p) => {'type': 'velo', 'obj': p, 'label': p.nom_parkng}),
+                ...parkingVeloList.map((p) => {'type': 'velo', 'obj': p, 'label': p.nomParkng}),
                 ...parkingVoitureList.map((p) => {'type': 'voiture', 'obj': p, 'label': p.nom}),
               ];
 
@@ -249,7 +249,7 @@ class _ParkingScreenState extends State<ParkingScreen> {
                             MarkerLayer(
                               markers: [
                                 ...filteredVelos.map((parking) {
-                                  final parkingId = '${parking.nom_parkng}_${parking.position.latitude}_${parking.position.longitude}';
+                                  final parkingId = '${parking.nomParkng}_${parking.position.latitude}_${parking.position.longitude}';
                                   final isFavorite = favoriteIds.contains(parkingId);
                                   return Marker(
                                     point: parking.position,

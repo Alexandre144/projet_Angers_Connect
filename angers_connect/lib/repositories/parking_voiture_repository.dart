@@ -35,7 +35,7 @@ class ParkingVoitureRepository {
     bool firstRequest = true;
 
     do {
-      final url = baseUrl + '&offset=$offset';
+      final url = '$baseUrl&offset=$offset';
       final Response response = await get(Uri.parse(url));
       if (response.statusCode != 200) {
         throw Exception('Failed to load parking voitures (status: [${response.statusCode})');
